@@ -10,7 +10,7 @@
   "author": "Christopher W. Johnson",
   "license": "MIT",
   "dependencies": {
-
+    "request": "^2.57.0"
   },
   "devDependencies": {
     "grunt": "~0.4.x",

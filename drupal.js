@@ -1,3 +1,5 @@
+/// <reference path="../vineyard/vineyard.d.ts"/>
+/// <reference path="../vineyard-lawn/lawn.d.ts"/>
 var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -5,14 +7,73 @@ var __extends = this.__extends || function (d, b) {
     d.prototype = new __();
 };
 var Vineyard = require('vineyard');
-
+var Request = require('request');
 var Drupal = (function (_super) {
     __extends(Drupal, _super);
     function Drupal() {
         _super.apply(this, arguments);
     }
+    Drupal.prototype.grow = function () {
+        var _this = this;
+        var ground = this.ground;
+        var trellises = this.config.trellises;
+        for (var name in trellises) {
+            var map = trellises[name];
+            var trellis = ground.trellises[name];
+            this.listen(ground, name + '.created', function (seed) { return _this.create_entity(trellis, seed, map); });
+            this.listen(ground, name + '.updated', function (seed) { return _this.update_entity(trellis, seed, map); });
+        }
+    };
+    Drupal.prototype.get_entity = function (trellis, seed, map) {
+        var trellis_name = map.name || trellis.name;
+        return send('GET', trellis_name + '/' + trellis.get_identity(seed) + '.json', null);
+    };
+    Drupal.prototype.create_entity = function (trellis, seed, map) {
+        var package = this.prepare_seed(trellis, seed, map);
+        var trellis_name = map.name || trellis.name;
+        return send('POST', trellis_name + '.json', package);
+    };
+    Drupal.prototype.update_entity = function (trellis, seed, map) {
+        var package = this.prepare_seed(trellis, seed, map);
+        var trellis_name = map.name || trellis.name;
+        return send('PUT', trellis_name + '/' + trellis.get_identity(seed) + '.json', package);
+    };
+    Drupal.prototype.prepare_seed = function (trellis, seed, map) {
+        var result = {};
+        for (var key in map) {
+            var info = map[key];
+            var name = info.name || key;
+            result[name] = seed[key];
+        }
+        return result;
+    };
+    Drupal.prototype.send = function (method, path, body, autologin) {
+        var _this = this;
+        if (autologin === void 0) { autologin = true; }
+        var options = {
+            url: endpoint + '/' + path,
+            method: method,
+            json: true,
+            body: body
+        };
+        var def = when.defer();
+        Request.post(options, function (error, response, body) {
+            if (response.statusCode == 401 && autologin) {
+                return _this.login().then(function () { return send(method, path, body, false); }).then(function (body, response) {
+                    def.resolve(body, response);
+                });
+            }
+            if (error) {
+                console.error(error);
+            }
+            def.resolve(body, response);
+        });
+        return def.promise;
+    };
+    Drupal.prototype.login = function () {
+        return send('POST', 'user/login.json', this.config.login, false);
+    };
     return Drupal;
 })(Vineyard.Bulb);
-
 module.exports = Drupal;
 //# sourceMappingURL=drupal.js.map
