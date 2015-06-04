@@ -7,6 +7,7 @@ var Request = require('request')
 interface Trellis_Map {
   name?:string
   properties:any
+  trellis?:Ground.Trellis
 }
 
 interface Login {
@@ -24,36 +25,39 @@ class Drupal extends Vineyard.Bulb {
   config:Config
 
   grow() {
-
     var ground = this.ground
     var trellises = this.config.trellises
 
     for (var name in trellises) {
       var map = trellises[name]
-      var trellis = ground.trellises[name]
-      this.listen(ground, name + '.created', (seed) => this.create_entity(trellis, seed, map))
-      this.listen(ground, name + '.updated', (seed) => this.update_entity(trellis, seed, map))
+      map.trellis = ground.trellises[name]
+      map.name = map.name || map.trellis.name
+
+      this.listen(ground, name + '.created', (seed) => this.create_entity(seed, map))
+      this.listen(ground, name + '.updated', (seed) => this.update_entity(seed, map))
+      this.listen(ground, name + '.deleted', (seed) => this.delete_entity(seed, map))
     }
   }
 
-  get_entity(trellis, seed, map):Promise {
-    var trellis_name = map.name || trellis.name
-    return send('GET', trellis_name + '/' + trellis.get_identity(seed) + '.json', null)
+  get_entity(seed, map):Promise {
+    return this.send('GET', map.name + '/' + map.trellis.get_identity(seed) + '.json', null)
   }
 
-  create_entity(trellis, seed, map):Promise {
-    var package = this.prepare_seed(trellis, seed, map)
-    var trellis_name = map.name || trellis.name
-    return send('POST', trellis_name + '.json', package)
+  create_entity(seed, map):Promise {
+    var package = this.prepare_seed(seed, map)
+    return this.send('POST', map.name + '.json', package)
   }
 
-  update_entity(trellis, seed, map):Promise {
-    var package = this.prepare_seed(trellis, seed, map)
-    var trellis_name = map.name || trellis.name
-    return send('PUT', trellis_name + '/' + trellis.get_identity(seed) + '.json', package)
+  update_entity(seed, map):Promise {
+    var package = this.prepare_seed(seed, map)
+    return this.send('PUT', map.name + '/' + map.trellis.get_identity(seed) + '.json', package)
   }
 
-  prepare_seed(trellis, seed, map) {
+  delete_entity(seed, map):Promise {
+    return this.send('DELETE', map.name + '/' + map.trellis.get_identity(seed) + '.json', null)
+  }
+
+  prepare_seed(seed, map) {
     var result = {}
     for (var key in map) {
       var info = map[key]
@@ -66,7 +70,7 @@ class Drupal extends Vineyard.Bulb {
 
   send(method, path, body, autologin = true):Promise {
     var options = {
-      url: endpoint + '/' + path,
+      url: this.config.endpoint + '/' + path,
       method: method,
       json: true,
       body: body
@@ -76,7 +80,7 @@ class Drupal extends Vineyard.Bulb {
     Request.post(options, (error, response, body)=> {
       if (response.statusCode == 401 && autologin) {
         return this.login()
-        .then(()=> send(method, path, body, false))
+        .then(()=> this.send(method, path, body, false))
         .then((body, response)=> {
             def.resolve(body, response)
           })
@@ -93,7 +97,7 @@ class Drupal extends Vineyard.Bulb {
   }
 
   login() {
-    return send('POST', 'user/login.json', this.config.login, false)
+    return this.send('POST', 'user/login.json', this.config.login, false)
   }
 }
 

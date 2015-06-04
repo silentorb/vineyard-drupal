@@ -19,26 +19,28 @@ var Drupal = (function (_super) {
         var trellises = this.config.trellises;
         for (var name in trellises) {
             var map = trellises[name];
-            var trellis = ground.trellises[name];
-            this.listen(ground, name + '.created', function (seed) { return _this.create_entity(trellis, seed, map); });
-            this.listen(ground, name + '.updated', function (seed) { return _this.update_entity(trellis, seed, map); });
+            map.trellis = ground.trellises[name];
+            map.name = map.name || map.trellis.name;
+            this.listen(ground, name + '.created', function (seed) { return _this.create_entity(seed, map); });
+            this.listen(ground, name + '.updated', function (seed) { return _this.update_entity(seed, map); });
+            this.listen(ground, name + '.deleted', function (seed) { return _this.delete_entity(seed, map); });
         }
     };
-    Drupal.prototype.get_entity = function (trellis, seed, map) {
-        var trellis_name = map.name || trellis.name;
-        return send('GET', trellis_name + '/' + trellis.get_identity(seed) + '.json', null);
+    Drupal.prototype.get_entity = function (seed, map) {
+        return this.send('GET', map.name + '/' + map.trellis.get_identity(seed) + '.json', null);
     };
-    Drupal.prototype.create_entity = function (trellis, seed, map) {
-        var package = this.prepare_seed(trellis, seed, map);
-        var trellis_name = map.name || trellis.name;
-        return send('POST', trellis_name + '.json', package);
+    Drupal.prototype.create_entity = function (seed, map) {
+        var package = this.prepare_seed(seed, map);
+        return this.send('POST', map.name + '.json', package);
     };
-    Drupal.prototype.update_entity = function (trellis, seed, map) {
-        var package = this.prepare_seed(trellis, seed, map);
-        var trellis_name = map.name || trellis.name;
-        return send('PUT', trellis_name + '/' + trellis.get_identity(seed) + '.json', package);
+    Drupal.prototype.update_entity = function (seed, map) {
+        var package = this.prepare_seed(seed, map);
+        return this.send('PUT', map.name + '/' + map.trellis.get_identity(seed) + '.json', package);
     };
-    Drupal.prototype.prepare_seed = function (trellis, seed, map) {
+    Drupal.prototype.delete_entity = function (seed, map) {
+        return this.send('DELETE', map.name + '/' + map.trellis.get_identity(seed) + '.json', null);
+    };
+    Drupal.prototype.prepare_seed = function (seed, map) {
         var result = {};
         for (var key in map) {
             var info = map[key];
@@ -51,7 +53,7 @@ var Drupal = (function (_super) {
         var _this = this;
         if (autologin === void 0) { autologin = true; }
         var options = {
-            url: endpoint + '/' + path,
+            url: this.config.endpoint + '/' + path,
             method: method,
             json: true,
             body: body
@@ -59,7 +61,7 @@ var Drupal = (function (_super) {
         var def = when.defer();
         Request.post(options, function (error, response, body) {
             if (response.statusCode == 401 && autologin) {
-                return _this.login().then(function () { return send(method, path, body, false); }).then(function (body, response) {
+                return _this.login().then(function () { return _this.send(method, path, body, false); }).then(function (body, response) {
                     def.resolve(body, response);
                 });
             }
@@ -71,7 +73,7 @@ var Drupal = (function (_super) {
         return def.promise;
     };
     Drupal.prototype.login = function () {
-        return send('POST', 'user/login.json', this.config.login, false);
+        return this.send('POST', 'user/login.json', this.config.login, false);
     };
     return Drupal;
 })(Vineyard.Bulb);
