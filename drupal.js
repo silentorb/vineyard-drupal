@@ -15,6 +15,8 @@ var Drupal = (function (_super) {
     }
     Drupal.prototype.grow = function () {
         var _this = this;
+        if (!this.config.endpoint || !this.config.login)
+            return;
         var ground = this.ground;
         var trellises = this.config.trellises;
         for (var name in trellises) {

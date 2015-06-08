@@ -25,6 +25,9 @@ class Drupal extends Vineyard.Bulb {
   config:Config
 
   grow() {
+    if (!this.config.endpoint || !this.config.login)
+      return
+
     var ground = this.ground
     var trellises = this.config.trellises
 
