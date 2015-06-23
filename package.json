@@ -1,6 +1,6 @@
 {
   "name": "vineyard-drupal",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Synchronizes a Vineyard server with a Drupal site",
   "main": "drupal.js",
   "repository": {
